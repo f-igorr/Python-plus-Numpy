@@ -1,56 +1,68 @@
 
-import random
-from string import ascii_letters, digits
-from config import *
+from string import digits, ascii_letters
+from math import pow
+from random import choices
 
 
+def decompose (num, base, len_arr):
+    # num:     число которое надо разложить на разряды
+    # base:    база исчисления (макс знач в разряде)
+    # len_arr: требуемая длина массива результата (кол разрядов)
+
+    arr = [ 0 for _ in range(len_arr)]
+    i = -1
+    while True:
+        arr[i] = num % base
+        num = num // base
+        if num == 0:
+            break
+        i -= 1
+    return arr
 
 
-def generate_unique_strings(length: int, count: int) -> list[str]:
-    """
-    Генерирует заданное количество уникальных случайных строк заданной длины,
-    с предварительной проверкой на возможность генерации.
+def full_combo (len_s, simbols, max_count):
 
-    Строки состоят из строчных и заглавных латинских букв (string.ascii_letters) 
-    и цифр (string.digits).
+    len_simbols = len(simbols)
+    res = []
+    for n in range(max_count):
+        ind = decompose (n, len_simbols, len_s)
+        s = ''.join ([simbols[i] for i in ind])
+        res.append(s)
 
-    :param length: Желаемая длина каждой генерируемой строки.
-    :param count: Количество уникальных строк, которое необходимо сгенерировать.
-    :return: Список (list) уникальных случайных строк или None при невозможности генерации.
-    """
+    #assert len(res) == len(set(res))
+    return res
 
-    characters = ascii_letters + digits
-    num_chars = len(characters) # 62 символа
+
+def generate_unique_strings (length, count) -> list[str]:
+
+    # строка может иметь повторы символов
+    # но строки должны быть уникальны 
+
+    ret = set()
+    simbols = digits + ascii_letters
+    len_simbols = len(simbols)
 
     try:
-        max_possible = pow(num_chars, length)
-    except OverflowError:
-        print("Ошибка: Максимально возможное количество комбинаций превышает вычислительные лимиты.")
+        max_count = int(pow (len_simbols, length))
+    except Exception as E:
+        print (f'ERROR: превышение вычислительных лимитов: "{E}"')
         return []
 
-    if count > max_possible:
-        print(f"ОШИБКА ГЕНЕРАЦИИ:")
-        print(f"Невозможно сгенерировать {count} уникальных строк длиной {length}.")
-        print(f"Максимальное возможное количество комбинаций при этих параметрах составляет: {max_possible:_}")
+    if count > max_count:
+        print (f'ERROR: невозможно сгенерировать {count} записей. Макс возможное кол-во: {max_count}')
         return []
 
-    # Инициализация для генерации
-    unique_strings = set()
-    
-    # Устанавливаем лимит попыток, хотя проверка выше должна предотвратить бесконечный цикл
-    max_attempts = count * 10 # Если комбинаций много, это может быть больше
-    attempts = 0
-    
-    while len(unique_strings) < count and attempts < max_attempts:
-        random_string = ''.join(random.choice(characters) for _ in range(length))
-        unique_strings.add(random_string)
-        attempts += 1
+    # если требуемое кол строк равно теоретическому, то просто перебрать все комбинации (это быстрее)
+    if count == max_count:
+        return full_combo (length, simbols, max_count)
 
-    if len(unique_strings) < count:
-        print("\Генерация остановлена из-за внутреннего лимита попыток.")
+    # иначе генерим случайные строки
+    while len(ret) < count:
+        list_s = choices (simbols, k= length)
+        s = ''.join(list_s)
+        ret.add (s)
 
-    return list(unique_strings)
-
+    return list(ret)
 
 
 
