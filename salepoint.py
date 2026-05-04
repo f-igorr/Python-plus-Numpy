@@ -1,22 +1,20 @@
-
-#from dataclasses import dataclass
-#import array
-#from math import sqrt
-
 from random import uniform, normalvariate
 from funcs import generate_unique_strings
-
 from config import *
 
 
 class SalePoint:
 
+    # TODO
+    # заменить питоновские циклы вектоной обработкой numpy для ускорения расчетов.
+    # сейчас мало используется векторная обработка данных
+    # (например в симуляции торгового дня)
+
     def __init__(self, time_tr: int):
-        # id 
         # time_tr - время поставки
 
         self.time_tr = time_tr
-        self.item_matrix = []
+        self.item_matrix = [] # ассортим матрица
 
         # метрики
         self.rew_neud_sum   = 0   # сумм неудовл спрос
@@ -28,13 +26,20 @@ class SalePoint:
         
         self._gen_assort_matrix()
 
+    
+    def set_used (self, flag):
+        # флаг использовалась эта модель или нет [0 - не исп-сь, 1 исп-сь]
+        
+        assert flag != self.used
+        
+        self.used = flag
+
 
     def _calc_corr_k (self, mu: float, sigma: float, size: int = 10000) -> float:
         # расчет поправочного коэф для формулы: mu_fact * К = mu. 
         # нужен для возврата факт среднего сгенерированного множества к заданному
-        # при обрезке отриц значений (замена на ноль)
-        # для каждого набора (mu,sigma) своя поправка
-        # аналитического расчета нет. это эмпирический расчет.
+        # при обрезке отриц значений (замена на ноль).
+        # для каждого набора (mu,sigma) своя поправка.
 
         summ = 0.0
         for i in range(size):
@@ -62,7 +67,7 @@ class SalePoint:
 
 
     def _gen_assort_matrix (self):
-        # 3 группы товаров (A, B, C)
+        # симуляция 3 групп товаров (A, B, C) (спрос: стабильный, средний, нестабильный)
         # с долями по кол-ву артикулов (0.6-0.75 , 0.15-0.25, 0.05-0.1) 
         # и с отношением sigma/mu (0.1-0.25, 0.2-0.4, 0.4-1.0)
 
@@ -220,4 +225,3 @@ class SalePoint:
 if __name__ == '__main__':
 
     SP = SalePoint (3)
-    pass

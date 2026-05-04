@@ -12,10 +12,9 @@ class Manager:
 
     def __init__(self, times_train: list[int], times_test: list[int]):
 
-        # check
         assert N_ITEMS % SIZE_BATCH == 0, "ERROR: N_ITEMS % SIZE_BATCH != 0"
         
-        self.count_iters = N_ITEMS // SIZE_BATCH
+        self.count_batches = N_ITEMS // SIZE_BATCH
 
         # SALEPOINTS
         self.TRAIN_SP = [ SalePoint(t) for t in times_train ]
@@ -27,30 +26,30 @@ class Manager:
         SIZES_NET[0] = sp.len_inp_1_item(item) #
         
         # arrays AGENTS
-        self.POPUL = []
+        self.POPUL = [] # рабочая популяция
         for i in range(N_POPUL):
             ag = Agent(SIZES_NET)
-            ag._init_random_net()
+            ag._init_random_net() # нач иниц-я случ весами
             self.POPUL.append(ag)
-        self.PARENTS = []
-        self.CHILDS  = []
-        self.ELITE   = []
+        self.PARENTS = [] # родители
+        self.CHILDS  = [] # потомки 
+        self.ELITE   = [] # элита
 
-        self.BEST_TRAIN = [None]
-        self.BEST_TEST  = [None]
+        self.BEST_TRAIN = [None] # лучший при обучении
+        self.BEST_TEST  = [None] # лучший после теста. тест на незнакомых SP
 
         self.results = None
 
-        self.iter = None
-        self.total_iters = None
+        self.iter = None # текущ итерация. исп-ся в _mutate_adaptive()
+        self.total_iters = None # всего итераций. исп-ся в _mutate_adaptive()
 
 
     def _calc_reward (self, agent: Agent):
         # расчет награды
-        # check
+
         assert agent.total_rew is None
 
-        agent.total_rew = (agent.arr_rew['rew_sales'] - agent.arr_rew['rew_neud_sum']) / agent.arr_rew['rew_stock']
+        agent.set_reward ((agent.arr_rew['rew_sales'] - agent.arr_rew['rew_neud_sum']) / agent.arr_rew['rew_stock'])
 
 
     def _progon (self, arr_SP: list[SalePoint], arr_AG: list[Agent]):
@@ -65,15 +64,17 @@ class Manager:
 
                 for day in range(TIME_WORK):
                     sp.one_day()
-                    for iter in range(self.count_iters):
-                        inp = sp.make_batch_inp (SIZE_BATCH, iter)
+                    for batch in range(self.count_batches):
+                        inp = sp.make_batch_inp (SIZE_BATCH, batch)
                         zakaz = agent.think_batch (SIZE_BATCH, inp)
-                        sp.put_zakaz_batch (zakaz, SIZE_BATCH, iter)
-                agent.arr_rew ['rew_neud_sum'] += sp.rew_neud_sum
-                agent.arr_rew ['rew_neud_num'] += sp.rew_neud_num
-                agent.arr_rew ['rew_sales'   ] += sp.rew_sales 
-                agent.arr_rew ['rew_stock'   ] += sp.rew_stock
-                sp.used = 1 # эта sp отработана. ее нельзя больше использовать
+                        sp.put_zakaz_batch (zakaz, SIZE_BATCH, batch)
+                agent.add_arr_rew (key= 'rew_neud_sum', val= sp.rew_neud_sum)
+                agent.add_arr_rew (key= 'rew_neud_num', val= sp.rew_neud_num)
+                agent.add_arr_rew (key= 'rew_sales'   , val= sp.rew_sales )
+                agent.add_arr_rew (key= 'rew_stock'   , val= sp.rew_stock)
+                
+                sp.set_used (1) # эта sp отработана. ее нельзя больше использовать
+            
             self._calc_reward (agent)
     
 
@@ -116,14 +117,14 @@ class Manager:
         self.ELITE.append (self.elite) # добавл элит
         for _ in range(2):
             copy_elite = deepcopy(self.elite)
-            self._mut_agent (copy_elite)
+            copy_elite.mut_net (self.iter, self.total_iters)
             self.ELITE.append (copy_elite)
 
         # худший, с ним скрестим лучшего
         worst = self.POPUL.pop(0)
         self.ELITE.append (self._cross_pair(self.elite, worst, KOEFF_CROSS_EL_WO))  # [0.7,0.3]
 
-        assert len(self.ELITE) == 4
+        assert len(self.ELITE) == 4 # 1 notmu elite + 2 mut copies + 1 cross(elite + worst)
 
         # отбор остальных
         # формирование пула родителей
@@ -135,11 +136,11 @@ class Manager:
             tmp.sort(key=lambda x: x.total_rew)
             self.PARENTS.append (tmp[-1])
 
-        # check
         assert len(self.POPUL) == 0
 
 
     def _cross_pair (self, par1, par2, koeff=[0.5, 0.5]):
+        # создание потомка из 2-х родителей
         # усреднение весов
         # par1, par2: родители
         # koeff: коэф усреднения
@@ -176,39 +177,14 @@ class Manager:
             z = self._cross_pair (x, y) # with koeff=[0.5, 0.5]
             self.CHILDS.append(z)
         self.PARENTS = [] # очищаю
-        return None
     
-
-    def _mutate_adaptive (self, weights: np.ndarray):
-        # in-place mutation
-
-        S = weights.shape
-        progress = self.iter / self.total_iters
-        current_sigma = MAX_SIGMA_MUT - progress * (MAX_SIGMA_MUT - MIN_SIGMA_MUT)
-        if current_sigma < 0: current_sigma = MIN_SIGMA_MUT 
-
-        mutation_mask = np.random.rand(*S) < PROB_MUT
-        perturbations = np.random.normal(loc=0.0, scale=current_sigma, size= S)
-
-        weights[mutation_mask] += perturbations[mutation_mask]
-        np.clip(weights, MIN_WEIGHT, MAX_WEIGHT, out=weights) 
-
-
-    def _mut_agent (self, agent: Agent):
-        # mut 1 agent
-        for d in agent.net:
-            W = d['W']
-            b = d['b']
-            self._mutate_adaptive (W)
-            self._mutate_adaptive (b)
-
 
     def mutation (self):
         # mut many agents
         # mut only CHILDS, not ELITE
 
         for agent in self.CHILDS:
-            self._mut_agent(agent)
+            agent.mut_net(self.iter, self.total_iters)
 
         assert len(self.POPUL) == 0
 
@@ -223,8 +199,8 @@ class Manager:
 
     def save_best (self, li_ag_new: list[Agent], li_ag_saved: list[Agent]):
         #
-        if len(li_ag_new) > 1 or len(li_ag_saved) > 1:
-            raise "ERROR: [save_best] len(li_ag_new) > 1 or len(li_ag_saved) > 1"
+        assert len(li_ag_new)   == 1
+        assert len(li_ag_saved) == 1
         
         ag_new = li_ag_new[0] # не изменяю, только читаю
         
@@ -243,7 +219,7 @@ class Manager:
         
         for i in range(N):
 
-            self.iter = i # it is used in _mutate_adaptive()
+            self.iter = i # it is used in agent._mutate_adaptive()
 
             self.progon_train()
             self.selection()

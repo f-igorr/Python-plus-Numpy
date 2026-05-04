@@ -55,6 +55,10 @@ def generate_unique_strings (length, count) -> list[str]:
     # если требуемое кол строк равно теоретическому, то просто перебрать все комбинации (это быстрее)
     if count == max_count:
         return full_combo (length, simbols, max_count)
+    
+    # TODO
+    # проверить будет ли быстрее: при count близком к max_count генерить full_combo с max_count
+    # а потом просто выбрать count готовых строк
 
     # иначе генерим случайные строки
     while len(ret) < count:
