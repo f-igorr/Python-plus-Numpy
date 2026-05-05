@@ -9,7 +9,7 @@ def decompose (num, base, len_arr):
     # base:    база исчисления (макс знач в разряде)
     # len_arr: требуемая длина массива результата (кол разрядов)
 
-    arr = [ 0 for _ in range(len_arr)]
+    arr = [0] * len_arr
     i = -1
     while True:
         arr[i] = num % base
@@ -29,7 +29,6 @@ def full_combo (len_s, simbols, max_count):
         s = ''.join ([simbols[i] for i in ind])
         res.append(s)
 
-    #assert len(res) == len(set(res))
     return res
 
 
