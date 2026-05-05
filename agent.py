@@ -11,7 +11,7 @@ class Agent:
     def __init__(self, sizes_net: list[int]):
         # sizes_net: лист вх размеров слоев + размер выхода [5, 10, 6, 1] -> [(5,10), (10,6), (6,1)]
         
-        assert min(sizes_net) > 0, "ERROR: min(sizes_net) <= 0"
+        assert None not in sizes_net, "ERROR: None in sizes_net !"
         
         self.sizes_net = sizes_net
         self._make_struct()
