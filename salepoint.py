@@ -1,6 +1,7 @@
 from random import uniform, normalvariate
 from funcs import generate_unique_strings
 from config import *
+import numpy as np
 
 
 class SalePoint:
@@ -48,20 +49,15 @@ class SalePoint:
         return mu * size / summ    
     
 
-    def _gen_sales_day (self, mu: float, sigma: float, corr_k: float) -> int:
-        # генерация ДНЕВНОЙ продажи с поправкой на коэф corr_k
-        # из-за замены отриц значений на ноль
-
-        return  round (corr_k * max(0, normalvariate(mu, sigma)))
-    
-
     def _gen_sales_per (self, mu: float, sigma: float, corr_k: float, per: int) -> int:
         # генерация продаж ЗА ПЕРИОД (напр. НЕДЕЛЯ) с поправкой на коэф corr_k
         # из-за замены отриц значений на ноль
 
         sales = 0
         for i in range(per):
-            sales += self._gen_sales_day (mu, sigma, corr_k)
+            sales += round (corr_k * max(0, normalvariate(mu, sigma)))
+
+        np.random.default_rng
         
         return sales
 
@@ -119,9 +115,7 @@ class SalePoint:
         for item in self.item_matrix:
 
             # спрос
-            #mu_day    = item['mu']    # / N_DAYS_IN_PER # mu_day = mu_per / per
-            #sigma_day = item['sigma'] # / sqrt(N_DAYS_IN_PER)  # sigma_day = sigma_per / sqrt(per)
-            spros = self._gen_sales_day (item['mu'], item['sigma'], item['corr_k'])
+            spros = round (item['corr_k'] * max(0, normalvariate(item['mu'], item['sigma'])))
 
             if item['ost'] < spros:
                 self.rew_neud_sum += spros - item['ost']
